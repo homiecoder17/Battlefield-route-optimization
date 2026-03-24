@@ -17,17 +17,16 @@ Built as a **DAA (Design and Analysis of Algorithms) PBL Project**.
 | `M` | Muddy Terrain | 3 | Slows down movement |
 | `P` | Poor Road | 4 | Broken/damaged road |
 | `E` | Enemy Zone | 5 | Risky, enemy present |
-| `L` | Landmine Zone | 7 | Very dangerous area |
 | `X` | Obstacle | inf | Completely blocked |
 | `S` | Start | - | Starting position |
 | `G` | Goal | - | Destination |
 
 ## How It Works
 
-1. **Grid Generation** — A dynamic battlefield grid is generated randomly with various terrain types
-2. **Cost Function** — Each cell has an associated movement cost based on terrain type
+1. **Grid Generation** — A dynamic battlefield grid (random 5x5 to 30x30) is generated with various terrain types
+2. **Cost Function** — Each cell has a movement cost based on terrain type (1 to inf)
 3. **Heuristic Function** — Manhattan distance estimates distance to goal
-4. **A\* Algorithm** *(coming soon)* — Combines actual cost `g(n)` + heuristic `h(n)` to find optimal path
+4. **A\* Algorithm** — Uses priority queue (heapq) with f(n) = g(n) + h(n) to find optimal path
 
 ### Core Formula
 ```
@@ -43,38 +42,15 @@ f(n) = g(n) + h(n)
 python 1.py
 ```
 
-## Sample Output
+## Current Progress (50%)
 
-```
-Generated Battlefield:
-
-S . N M . X
-N . E . P .
-. X N . M N
-P . . N . E
-. M X . N G
-
-Start: (0, 0)
-Goal: (4, 5)
-
---- Cell Costs ---
-Open Ground  (.) : 2
-Normal Road  (N) : 1
-Muddy        (M) : 3
-Poor Road    (P) : 4
-Enemy Zone   (E) : 5
-Obstacle     (X) : inf
-```
-
-## Project Progress
-
-- [x] Dynamic grid generation with 7 terrain types
+- [x] Dynamic grid generation with 6 terrain types
 - [x] Start and goal placement
 - [x] Movement logic (4-directional neighbors)
 - [x] Multi-factor cost function
 - [x] Heuristic function (Manhattan Distance)
 - [x] Grid display
-- [ ] A* pathfinding algorithm
+- [x] A* algorithm (coded, not yet executed)
 - [ ] Path reconstruction
 - [ ] Path visualization
 - [ ] Additional terrains (Forest, Mountain, Water)

@@ -1,4 +1,5 @@
 import random
+import heapq
 
 # Grid size
 ROWS = random.randint(5,30)
@@ -104,6 +105,43 @@ def print_grid(grid):
         print(" ".join(row))
 
 # -------------------------------
+# 7. A* Algorithm
+# -------------------------------
+def astar(grid, start, goal):
+    # Priority queue: (f_cost, node)
+    open_list = []
+    heapq.heappush(open_list, (0, start))
+
+    # Track where each node came from (for path reconstruction)
+    came_from = {}
+
+    # g(n): actual cost from start to each node
+    cost_so_far = {start: 0}
+
+    while open_list:
+        # Pop node with lowest f(n)
+        current = heapq.heappop(open_list)[1]
+
+        # If we reached the goal, stop
+        if current == goal:
+            break
+
+        # Explore all neighbors
+        for neighbor in get_neighbors(grid, current[0], current[1]):
+            # g(n) = cost so far + cost to move to neighbor
+            new_cost = cost_so_far[current] + get_cost(grid[neighbor[0]][neighbor[1]])
+
+            # Only update if we found a cheaper path
+            if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                cost_so_far[neighbor] = new_cost
+                # f(n) = g(n) + h(n)
+                priority = new_cost + heuristic(goal, neighbor)
+                heapq.heappush(open_list, (priority, neighbor))
+                came_from[neighbor] = current
+
+    return came_from, cost_so_far
+
+# -------------------------------
 # MAIN EXECUTION
 # -------------------------------
 grid = generate_grid(ROWS, COLS)
@@ -125,3 +163,20 @@ print("Muddy        (M) :", get_cost('M'))
 print("Poor Road    (P) :", get_cost('P'))
 print("Enemy Zone   (E) :", get_cost('E'))
 print("Obstacle     (X) :", get_cost('X'))
+
+# ============================================
+# TODO (Remaining 50% - To be implemented):
+# ============================================
+# - Run A* Algorithm using astar() function
+# - Reconstruct path from came_from dictionary
+# - Visualize path on grid with '*'
+# - Add Forest, Mountain, Water terrains
+# - Performance analysis
+
+# Uncomment below to run A* (for 100% submission):
+# came_from, cost_so_far = astar(grid, start, goal)
+# if goal in cost_so_far:
+#     print("A* reached the goal!")
+#     print("Cost to reach goal:", cost_so_far[goal])
+# else:
+#     print("Goal is unreachable!")
