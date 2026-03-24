@@ -1,0 +1,499 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Battlefield Route Optimization</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --cell: 38px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* â”€â”€ Layout â”€â”€ */
+    .page {
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .logo {
+      font-size: 1.4rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, #34d399, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo span {
+      font-size: 0.75rem;
+      font-weight: 500;
+      -webkit-text-fill-color: #64748b;
+      margin-left: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    .bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .field {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 6px 12px;
+    }
+
+    .field label { font-size: 0.78rem; color: #64748b; }
+    .field input {
+      width: 40px; border: none; background: none; color: #e2e8f0;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+      text-align: center; outline: none;
+    }
+
+    .btn {
+      padding: 8px 16px; border: none; border-radius: 10px;
+      font-family: inherit; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+      color: #e2e8f0;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
+
+    .btn-gen {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff; border: none;
+    }
+
+    /* â”€â”€ Main grid â”€â”€ */
+    .content {
+      display: grid;
+      grid-template-columns: 1fr 260px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .map-area {
+      background: rgba(15,23,42,0.6);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 20px;
+      overflow: auto;
+    }
+
+    .map-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .map-title { font-size: 0.9rem; font-weight: 700; }
+
+    .chip {
+      font-size: 0.72rem; font-weight: 600;
+      padding: 5px 10px; border-radius: 20px;
+      background: rgba(56,189,248,0.1);
+      color: #7dd3fc;
+      border: 1px solid rgba(56,189,248,0.2);
+    }
+    .chip.ok { background: rgba(34,197,94,0.12); color: #86efac; border-color: rgba(34,197,94,0.25); }
+    .chip.err { background: rgba(248,113,113,0.1); color: #fca5a5; border-color: rgba(248,113,113,0.2); }
+
+    .grid-box {
+      display: inline-grid;
+      gap: 3px;
+    }
+
+    .cell {
+      width: var(--cell); height: var(--cell);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600; font-size: 0.75rem;
+      cursor: crosshair; position: relative;
+      user-select: none;
+      transition: transform 0.1s;
+      border: 1px solid rgba(255,255,255,0.06);
+      animation: pop 0.2s ease both;
+    }
+    .cell:hover { transform: scale(1.08); z-index: 2; }
+
+    @keyframes pop { from { opacity:0; transform: scale(0.8); } to { opacity:1; transform: scale(1); } }
+
+    .cell-empty    { background: #1e293b; color: #64748b; }
+    .cell-normal   { background: #065f46; color: #6ee7b7; }
+    .cell-muddy    { background: #78350f; color: #fcd34d; }
+    .cell-poor     { background: #7c2d12; color: #fdba74; }
+    .cell-enemy    { background: #7f1d1d; color: #fca5a5; }
+    .cell-obstacle { background: #0f172a; color: #334155; }
+    .cell-start    { background: #059669; color: #fff; box-shadow: 0 0 12px rgba(16,185,129,0.4); }
+    .cell-goal     { background: #2563eb; color: #fff; box-shadow: 0 0 12px rgba(59,130,246,0.4); }
+    .cell-userpath { outline: 2px solid #facc15; box-shadow: inset 0 0 0 1px rgba(250,204,21,0.35); }
+    .tip {
+      display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%); background: #020617; color: #e2e8f0;
+      padding: 4px 8px; border-radius: 6px; font-size: 0.65rem;
+      white-space: nowrap; border: 1px solid rgba(255,255,255,0.1);
+      z-index: 50; pointer-events: none;
+    }
+    .cell:hover .tip { display: block; }
+
+    /* â”€â”€ Sidebar â”€â”€ */
+    .sidebar { display: flex; flex-direction: column; gap: 14px; }
+
+    .panel {
+      background: rgba(15,23,42,0.6);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .panel-title {
+      font-size: 0.72rem; color: #64748b;
+      text-transform: uppercase; letter-spacing: 1.2px;
+      margin-bottom: 12px; font-weight: 600;
+    }
+
+    /* Brush List */
+    .brush {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 8px; border-radius: 8px;
+      cursor: pointer; transition: 0.15s;
+      border: 1px solid transparent;
+      margin-bottom: 3px;
+    }
+    .brush:hover { background: rgba(255,255,255,0.04); }
+    .brush.on { background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.25); }
+
+    .swatch {
+      width: 28px; height: 28px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.72rem;
+      flex-shrink: 0;
+    }
+
+    .brush-name { font-size: 0.82rem; font-weight: 500; }
+    .brush-cost { font-size: 0.7rem; color: #64748b; }
+
+    .sep { border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 6px 0; }
+
+    /* Stats */
+    .stat {
+      display: flex; justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 0.82rem;
+    }
+    .stat:last-child { border: none; }
+    .stat-k { color: #64748b; }
+    .stat-v { font-family: 'JetBrains Mono', monospace; color: #34d399; font-size: 0.82rem; }
+
+    /* Bars */
+    .bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .bar-sym { width: 16px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.72rem; }
+    .bar-track { flex: 1; height: 6px; background: rgba(255,255,255,0.04); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .bar-n { width: 24px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: #64748b; }
+
+    @media (max-width: 900px) {
+      .content { grid-template-columns: 1fr; }
+      :root { --cell: 30px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="logo">Battlefield Route Optimizer <span>DAA PBL</span></div>
+    <div class="bar">
+      <div class="field"><label>R</label><input id="inR" type="number" value="10" min="5" max="30"></div>
+      <div class="field"><label>C</label><input id="inC" type="number" value="14" min="5" max="30"></div>
+      <button class="btn btn-gen" onclick="randomize()">Randomize</button>
+      <button class="btn" onclick="clearAll()">Clear</button>
+      <button class="btn" id="pathBtn" onclick="togglePathMode()">Select Path</button>
+      <button class="btn" onclick="resetPath()">Reset Path</button>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="map-area">
+      <div class="map-head">
+        <div class="map-title">Battlefield Grid</div>
+        <div class="chip" id="chip">Paint terrain & solve</div>
+      </div>
+      <div class="grid-box" id="grid" onmouseleave="painting=false"></div>
+    </div>
+
+    <div class="sidebar">
+      <div class="panel">
+        <div class="panel-title">Brush</div>
+        <div id="brushes"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Stats</div>
+        <div id="stats"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Terrain Mix</div>
+        <div id="bars"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const T = {
+  '.': { n:'Open Ground', c:2, cl:'cell-empty',    co:'#64748b' },
+  'N': { n:'Normal Road', c:1, cl:'cell-normal',   co:'#34d399' },
+  'M': { n:'Muddy',       c:3, cl:'cell-muddy',    co:'#fbbf24' },
+  'P': { n:'Poor Road',   c:4, cl:'cell-poor',     co:'#f97316' },
+  'E': { n:'Enemy Zone',  c:5, cl:'cell-enemy',    co:'#f87171' },
+  'X': { n:'Obstacle',    c:1/0, cl:'cell-obstacle', co:'#475569' },
+  'S': { n:'Start',       c:1, cl:'cell-start',    co:'#10b981' },
+  'G': { n:'Goal',        c:1, cl:'cell-goal',     co:'#3b82f6' }
+};
+
+const BRUSHES = [
+  ['X','Obstacle','INF'],['E','Enemy','5'],['P','Poor Road','4'],
+  ['M','Muddy','3'],['.','Ground','2'],['N','Road','1'],
+  null, // separator
+  ['S','Move Start','--'],['G','Move Goal','--']
+];
+
+let grid=[], rows=10, cols=14, sP=[0,0], gP=[9,13], painting=false, brush='X', pathMode=false, userPath=[], userPathMap=new Set(), pathReport=null;
+
+function k(p){return p[0]+','+p[1]}
+function h(a,b){return Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])}
+function nbrs(g,x,y){
+  const d=[[-1,0],[1,0],[0,-1],[0,1]], o=[];
+  for(const[dx,dy]of d){const nx=x+dx,ny=y+dy;if(nx>=0&&nx<g.length&&ny>=0&&ny<g[0].length&&g[nx][ny]!=='X')o.push([nx,ny]);}
+  return o;
+}
+
+function makeGrid(r,c){
+  const g=[];
+  for(let i=0;i<r;i++){const row=[];for(let j=0;j<c;j++){
+    const v=Math.random();
+    row.push(v<.15?'X':v<.22?'E':v<.37?'N':v<.47?'M':v<.55?'P':'.');
+  }g.push(row);}return g;
+}
+
+// â”€â”€ Rendering â”€â”€
+function cellSize(){
+  const mw=Math.min(innerWidth-340,880), mh=innerHeight-220;
+  const s=Math.max(22,Math.min(42,Math.floor((mw-cols*3)/cols),Math.floor((mh-rows*3)/rows)));
+  document.documentElement.style.setProperty('--cell',s+'px'); return s;
+}
+
+function render(){
+  const sz=cellSize(), fs=sz<28?'0.6rem':sz<34?'0.72rem':'0.75rem';
+  const el=document.getElementById('grid');
+  el.innerHTML=''; el.style.gridTemplateColumns=`repeat(${cols},var(--cell))`;
+  for(let i=0;i<rows;i++)for(let j=0;j<cols;j++){
+    const v=grid[i][j], m=T[v];
+    const c=document.createElement('div');
+    c.className=`cell ${m.cl}`;
+    if(userPathMap.has(k([i,j])) && v!=='S' && v!=='G') c.className += ' cell-userpath';
+    c.textContent=v; c.style.fontSize=fs;
+    c.style.animationDelay=(i*cols+j)*4+'ms';
+    const t=document.createElement('span'); t.className='tip';
+    t.textContent=`(${i},${j}) ${m.n} | ${m.c===1/0?'Blocked':'Cost '+m.c}`;
+    c.appendChild(t);
+    c.onmousedown=e=>{
+      e.preventDefault();
+      if(pathMode){selectPathCell(i,j);return;}
+      painting=true;paint(i,j);
+    };
+    c.onmouseenter=()=>{if(!pathMode&&painting)paint(i,j)};
+    el.appendChild(c);
+  }
+  stats();
+}
+
+function paint(r,c){
+  const v=grid[r][c];
+  if((v==='S'||v==='G')&&brush!=='S'&&brush!=='G')return;
+  if(brush==='S'){if(r===gP[0]&&c===gP[1])return;grid[sP[0]][sP[1]]='.';sP=[r,c];grid[r][c]='S';render();return;}
+  if(brush==='G'){if(r===sP[0]&&c===sP[1])return;grid[gP[0]][gP[1]]='.';gP=[r,c];grid[r][c]='G';render();return;}
+  if(r===sP[0]&&c===sP[1])return;if(r===gP[0]&&c===gP[1])return;
+  grid[r][c]=brush;
+  if(userPath.length){
+    clearPathData();
+    setChip('Path reset after terrain change','');
+  }
+  // fast single-cell update
+  const idx=r*cols+c, cells=document.getElementById('grid').children;
+  if(cells[idx]){cells[idx].className=`cell ${T[brush].cl}`;cells[idx].firstChild.textContent=brush;cells[idx].querySelector('.tip').textContent=`(${r},${c}) ${T[brush].n} | ${T[brush].c===1/0?'Blocked':'Cost '+T[brush].c}`;}
+  setChip('Terrain changed','');
+  stats();
+}
+
+function stats(){
+  const hv=h(sP,gP), nn=nbrs(grid,sP[0],sP[1]).length, total=rows*cols, cnt={};
+  grid.forEach(r=>r.forEach(v=>{cnt[v]=(cnt[v]||0)+1}));
+  const rowsData=[
+    ['Grid',`${rows} x ${cols}`],['Start',`(${sP[0]},${sP[1]})`],['Goal',`(${gP[0]},${gP[1]})`],
+    ['Heuristic',hv],['Neighbors',nn],['Path Cells',userPath.length]
+  ];
+  if(pathReport){
+    rowsData.push(['Path Cost',pathReport.totalCost]);
+    rowsData.push(['Risk Level',pathReport.riskLevel]);
+  }
+  document.getElementById('stats').innerHTML=rowsData
+    .map(([k,v])=>`<div class="stat"><span class="stat-k">${k}</span><span class="stat-v">${v}</span></div>`).join('');
+
+  const order=['N','.',  'M','P','E','X'];
+  document.getElementById('bars').innerHTML=order.map(t=>{
+    const n=cnt[t]||0, p=total?(n/total*100):0;
+    return `<div class="bar-row"><span class="bar-sym" style="color:${T[t].co}">${t}</span><div class="bar-track"><div class="bar-fill" style="width:${p}%;background:${T[t].co}"></div></div><span class="bar-n">${n}</span></div>`;
+  }).join('');
+}
+
+function setChip(t,cls){const c=document.getElementById('chip');c.textContent=t;c.className='chip'+(cls?' '+cls:'');}
+
+function setBrush(b,el){brush=b;document.querySelectorAll('.brush').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+
+// â”€â”€ Actions â”€â”€
+function randomize(){
+  rows=Math.max(5,Math.min(30,+document.getElementById('inR').value||10));
+  cols=Math.max(5,Math.min(30,+document.getElementById('inC').value||14));
+  grid=makeGrid(rows,cols); sP=[0,0]; gP=[rows-1,cols-1];
+  grid[0][0]='S'; grid[rows-1][cols-1]='G';
+  clearPathData();
+  setChip('Grid generated',''); render();
+}
+
+function clearAll(){
+  grid=Array.from({length:rows},()=>Array(cols).fill('.'));
+  grid[sP[0]][sP[1]]='S'; grid[gP[0]][gP[1]]='G';
+  clearPathData();
+  setChip('Grid cleared',''); render();
+}
+
+function clearPathData(){
+  userPath=[];
+  userPathMap=new Set();
+  pathReport=null;
+}
+
+function resetPath(){
+  clearPathData();
+  setChip('Path reset','');
+  render();
+}
+
+function togglePathMode(){
+  pathMode=!pathMode;
+  painting=false;
+  const b=document.getElementById('pathBtn');
+  b.textContent=pathMode?'Selecting Path':'Select Path';
+  b.style.borderColor=pathMode?'rgba(250,204,21,0.45)':'rgba(255,255,255,0.1)';
+  setChip(pathMode?'Path mode: click cells from S to G':'Paint mode active','');
+}
+
+function adjacent(a,b){
+  return Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])===1;
+}
+
+function calcPathReport(){
+  const riskMap={'.':1,'N':0,'M':2,'P':3,'E':6,'S':0,'G':0};
+  let totalCost=0,totalRisk=0;
+  for(let i=1;i<userPath.length;i++){
+    const [r,c]=userPath[i], cell=grid[r][c];
+    totalCost+=T[cell].c;
+    totalRisk+=riskMap[cell]||0;
+  }
+  const moves=Math.max(0,userPath.length-1);
+  const avgRisk=moves?totalRisk/moves:0;
+  const riskLevel=avgRisk<=1?'Low':avgRisk<=2.5?'Medium':'High';
+  pathReport={moves,totalCost,totalRisk,avgRisk,riskLevel};
+}
+
+function selectPathCell(r,c){
+  const cell=grid[r][c], pos=[r,c], key=k(pos);
+  if(cell==='X'){setChip('Blocked cell cannot be part of path','err');return;}
+
+  if(!userPath.length){
+    if(r!==sP[0]||c!==sP[1]){setChip('Start selection from S cell','err');return;}
+    userPath=[pos];
+    userPathMap=new Set([key]);
+    pathReport=null;
+    setChip('Path started at S','');
+    render();
+    return;
+  }
+
+  const last=userPath[userPath.length-1];
+  if(last[0]===r&&last[1]===c)return;
+
+  if(userPath.length>1){
+    const prev=userPath[userPath.length-2];
+    if(prev[0]===r&&prev[1]===c){
+      userPathMap.delete(k(last));
+      userPath.pop();
+      pathReport=null;
+      setChip('Backtracked one step','');
+      render();
+      return;
+    }
+  }
+
+  if(userPathMap.has(key)){setChip('Loops are disabled in manual path','err');return;}
+  if(!adjacent(last,pos)){setChip('Select a neighboring cell (4-directional)','err');return;}
+
+  userPath.push(pos);
+  userPathMap.add(key);
+
+  if(r===gP[0]&&c===gP[1]){
+    calcPathReport();
+    setChip(`Path complete: Cost ${pathReport.totalCost}, Risk ${pathReport.riskLevel}`,'ok');
+  }else{
+    pathReport=null;
+    setChip('Path extended','');
+  }
+  render();
+}
+
+// â”€â”€ Init brushes â”€â”€
+function initBrushes(){
+  const el=document.getElementById('brushes');
+  BRUSHES.forEach(b=>{
+    if(!b){el.innerHTML+='<hr class="sep">';return;}
+    const [sym,name,cost]=b, active=sym===brush?' on':'';
+    el.innerHTML+=`<div class="brush${active}" onclick="setBrush('${sym}',this)"><div class="swatch ${T[sym].cl}">${sym}</div><div><div class="brush-name">${name}</div></div><div class="brush-cost">${cost}</div></div>`;
+  });
+}
+
+document.addEventListener('mouseup',()=>painting=false);
+window.addEventListener('resize',()=>cellSize());
+initBrushes();
+randomize();
+</script>
+</body>
+</html>
+

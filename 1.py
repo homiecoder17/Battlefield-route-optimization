@@ -172,11 +172,3 @@ print("Obstacle     (X) :", get_cost('X'))
 # - Visualize path on grid with '*'
 # - Add Forest, Mountain, Water terrains
 # - Performance analysis
-
-# Uncomment below to run A* (for 100% submission):
-# came_from, cost_so_far = astar(grid, start, goal)
-# if goal in cost_so_far:
-#     print("A* reached the goal!")
-#     print("Cost to reach goal:", cost_so_far[goal])
-# else:
-#     print("Goal is unreachable!")
