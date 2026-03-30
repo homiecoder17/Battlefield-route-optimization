@@ -163,12 +163,3 @@ print("Muddy        (M) :", get_cost('M'))
 print("Poor Road    (P) :", get_cost('P'))
 print("Enemy Zone   (E) :", get_cost('E'))
 print("Obstacle     (X) :", get_cost('X'))
-
-# ============================================
-# TODO (Remaining 50% - To be implemented):
-# ============================================
-# - Run A* Algorithm using astar() function
-# - Reconstruct path from came_from dictionary
-# - Visualize path on grid with '*'
-# - Add Forest, Mountain, Water terrains
-# - Performance analysis
